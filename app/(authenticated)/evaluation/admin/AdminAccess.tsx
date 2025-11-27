@@ -13,6 +13,7 @@ export type AccessUser = {
   email: string | null
   role: "admin" | "manager" | "employee"
   team: string | null
+  team_id?: string | null
   seniority: string | null
   start_date: string                 // ⭐ REQUIRED
 }
