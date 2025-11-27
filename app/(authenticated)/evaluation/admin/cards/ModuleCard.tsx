@@ -41,6 +41,7 @@ export default function ModuleCard({
 
   const activeEvaluations = employeeSchedules.filter(plan => plan.activeNow)
   const hasEmployees = matchedEmployees.length > 0
+  const visibleSchedules = employeeSchedules.slice(0, 3)
 
   return (
     <Card
@@ -116,10 +117,10 @@ export default function ModuleCard({
             </div>
 
             <div className="space-y-2">
-              {employeeSchedules.slice(0, 3).map(schedule => (
+              {visibleSchedules.map(schedule => (
                 <div
                   key={schedule.employeeId}
-                  className="rounded-lg border bg-muted/30 p-3 space-y-1"
+                  className="rounded-lg border bg-muted/30 p-3 space-y-2"
                 >
                   <div className="flex items-center justify-between">
                     <p className="font-medium text-foreground text-sm">{schedule.employeeName}</p>
@@ -127,16 +128,26 @@ export default function ModuleCard({
                       {schedule.activeNow ? "Active now" : "Scheduled"}
                     </Badge>
                   </div>
-                  <p className="text-muted-foreground">
-                    Opens {schedule.nextOpensOn} · Closes {schedule.windowCloses}
+                  <p className="text-muted-foreground text-xs">
+                    Start date: {schedule.startDate} • First cycle opens {schedule.firstOpensOn}
                   </p>
-                  <div className="flex flex-wrap gap-1 text-[11px] text-muted-foreground">
-                    {schedule.upcomingWindows.map(window => (
-                      <Badge key={`${schedule.employeeId}-${window.opensOn}`} variant="secondary" className="rounded-full">
-                        {window.opensOn} → {window.closesOn}
-                      </Badge>
-                    ))}
-                  </div>
+                  {schedule.upcomingWindows?.length ? (
+                    <div className="space-y-1 text-xs">
+                      {schedule.upcomingWindows.slice(0, 3).map((window, index) => (
+                        <div
+                          key={`${schedule.employeeId}-${window.opensOn}`}
+                          className="flex items-center justify-between rounded-md border bg-background px-2 py-1"
+                        >
+                          <span className="font-medium text-foreground">{window.rangeLabel}</span>
+                          <Badge variant={index === 0 ? "default" : "outline"} className="rounded-full text-[10px]">
+                            {index === 0 ? "Next window" : `+${index} cycle`}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground text-xs">No upcoming windows available.</p>
+                  )}
                 </div>
               ))}
             </div>

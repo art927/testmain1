@@ -46,10 +46,13 @@ type Props = {
 export type EmployeeEvaluationPlan = {
   employeeId: string
   employeeName: string
+  startDate: string
+  firstOpensOn: string
   nextOpensOn: string
+  nextOpensOnDate: Date
   windowCloses: string
   activeNow: boolean
-  upcomingWindows: { opensOn: string; closesOn: string }[]
+  upcomingWindows: { opensOn: string; closesOn: string; rangeLabel: string }[]
 }
 
 const FREQUENCY_INTERVAL_MONTHS: Record<string, number> = {
@@ -72,6 +75,14 @@ const addMonths = (date: Date, months: number) => {
   return d
 }
 
+const addDays = (date: Date, days: number) => {
+  const d = new Date(date)
+  d.setDate(d.getDate() + days)
+  return d
+}
+
+const formatRange = (start: Date, end: Date) => `${formatDate(start)} — ${formatDate(end)}`
+
 const buildEmployeeSchedule = (
   employee: AccessUser,
   moduleFrequency: string
@@ -83,32 +94,42 @@ const buildEmployeeSchedule = (
   const evaluationWindowDays = 30
 
   const startDate = new Date(employee.start_date)
+  if (isNaN(startDate.getTime())) return null
+
   const firstOpening = addMonths(startDate, 6)
   const now = new Date()
 
   const windows: { opensOn: Date; closesOn: Date }[] = []
+  let cursor = firstOpening
+
+  while (cursor < now) {
+    cursor = addMonths(cursor, interval)
+  }
+
   for (let i = 0; i < 4; i++) {
-    const opensOn = addMonths(firstOpening, interval * i)
-    const closesOn = new Date(opensOn)
-    closesOn.setDate(closesOn.getDate() + evaluationWindowDays)
+    const opensOn = i === 0 ? cursor : addMonths(cursor, interval * i)
+    const closesOn = addDays(opensOn, evaluationWindowDays)
     windows.push({ opensOn, closesOn })
   }
 
   const activeWindow = windows.find(
     (window) => now >= window.opensOn && now <= window.closesOn
   )
-  const nextWindow =
-    windows.find((window) => window.opensOn >= now) ?? windows[windows.length - 1]
+  const nextWindow = windows[0]
 
   return {
     employeeId: employee.id,
     employeeName: employee.full_name || "Team member",
+    startDate: formatDate(startDate),
+    firstOpensOn: formatDate(firstOpening),
     nextOpensOn: formatDate(nextWindow.opensOn),
+    nextOpensOnDate: nextWindow.opensOn,
     windowCloses: formatDate(nextWindow.closesOn),
     activeNow: Boolean(activeWindow),
     upcomingWindows: windows.map((window) => ({
       opensOn: formatDate(window.opensOn),
       closesOn: formatDate(window.closesOn),
+      rangeLabel: formatRange(window.opensOn, window.closesOn),
     })),
   }
 }
@@ -192,7 +213,12 @@ export default function AdminModules({ initialModules, teams, employees }: Props
 
           const schedules = matchedEmployees
             .map(emp => buildEmployeeSchedule(emp, module.frequency))
-            .filter(Boolean) as EmployeeEvaluationPlan[]
+            .filter(Boolean)
+            .sort(
+              (a, b) =>
+                (a as EmployeeEvaluationPlan).nextOpensOnDate.getTime() -
+                (b as EmployeeEvaluationPlan).nextOpensOnDate.getTime()
+            ) as EmployeeEvaluationPlan[]
 
           return (
             <ModuleCard
