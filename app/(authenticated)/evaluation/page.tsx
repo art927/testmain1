@@ -75,18 +75,7 @@ export default async function EvaluationPage() {
     })
   }
 
-  // 3) Load periods
-  const { data: periodRows } = await supabase
-    .from("evaluation_periods")
-    .select("*")
-
-  const periods = (periodRows ?? []).map((p) => ({
-    ...p,
-    module_name:
-      fullModules.find((m) => m.id === p.module_id)?.name || "Unknown",
-  }))
-
-  // 4) Load users for Access tab
+  // 3) Load users for Access tab
   const { data: userRows } = await supabase
     .from("profiles")
     .select("id, full_name, email, role, team_id, seniority, start_date")
@@ -96,17 +85,16 @@ export default async function EvaluationPage() {
     full_name: u.full_name,
     email: u.email,
     role: u.role ?? "employee",
+    team: u.team_id ?? null,
     team_id: u.team_id ?? null,
     seniority: u.seniority ?? null,
-    start_date: u.start_date,  
+    start_date: u.start_date,
   }))
 
   return (
     <AdminEvaluation
       initialModules={fullModules}
       teams={teams ?? []}
-      initialPeriods={periods}
-      modules={fullModules.map((m) => ({ id: m.id, name: m.name }))}
       initialUsers={accessUsers}
     />
   )
