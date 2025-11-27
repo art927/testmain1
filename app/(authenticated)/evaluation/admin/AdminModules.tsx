@@ -8,6 +8,7 @@ import ModuleCard from "./cards/ModuleCard"
 import QuestionsModal from "./modals/QuestionsModal"
 import FormSelectorModal from "./modals/FormSelectorModal"
 import ModuleModal from "./modals/ModuleModal"
+import type { AccessUser } from "./AdminAccess"
 
 export type Section = {
   id: string
@@ -39,9 +40,99 @@ export type Module = {
 type Props = {
   initialModules: Module[]
   teams: { id: string; name: string }[]
+  employees: AccessUser[]
 }
 
-export default function AdminModules({ initialModules, teams }: Props) {
+export type EmployeeEvaluationPlan = {
+  employeeId: string
+  employeeName: string
+  startDate: string
+  firstOpensOn: string
+  nextOpensOn: string
+  windowCloses: string
+  activeNow: boolean
+  upcomingWindows: { opensOn: string; closesOn: string; rangeLabel: string }[]
+}
+
+const FREQUENCY_INTERVAL_MONTHS: Record<string, number> = {
+  "quarterly": 3,
+  "bi-annual": 6,
+  "semi-annual": 6,
+  "annual": 12,
+}
+
+const formatDate = (date: Date) =>
+  new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(date)
+
+const addMonths = (date: Date, months: number) => {
+  const d = new Date(date)
+  d.setMonth(d.getMonth() + months)
+  return d
+}
+
+const addDays = (date: Date, days: number) => {
+  const d = new Date(date)
+  d.setDate(d.getDate() + days)
+  return d
+}
+
+const formatRange = (start: Date, end: Date) => `${formatDate(start)} — ${formatDate(end)}`
+
+const buildEmployeeSchedule = (
+  employee: AccessUser,
+  moduleFrequency: string
+): EmployeeEvaluationPlan | null => {
+  if (!employee.start_date) return null
+
+  const normalizedFreq = moduleFrequency.toLowerCase()
+  const interval = FREQUENCY_INTERVAL_MONTHS[normalizedFreq] ?? 12
+  const evaluationWindowDays = 30
+
+  const startDate = new Date(employee.start_date)
+  if (isNaN(startDate.getTime())) return null
+
+  const firstOpening = addMonths(startDate, 6)
+  const now = new Date()
+
+  const windows: { opensOn: Date; closesOn: Date }[] = []
+  let cursor = firstOpening
+
+  while (cursor < now) {
+    cursor = addMonths(cursor, interval)
+  }
+
+  for (let i = 0; i < 4; i++) {
+    const opensOn = i === 0 ? cursor : addMonths(cursor, interval * i)
+    const closesOn = addDays(opensOn, evaluationWindowDays)
+    windows.push({ opensOn, closesOn })
+  }
+
+  const activeWindow = windows.find(
+    (window) => now >= window.opensOn && now <= window.closesOn
+  )
+  const nextWindow = windows[0]
+
+  return {
+    employeeId: employee.id,
+    employeeName: employee.full_name || "Team member",
+    startDate: formatDate(startDate),
+    firstOpensOn: formatDate(firstOpening),
+    nextOpensOn: formatDate(nextWindow.opensOn),
+    windowCloses: formatDate(nextWindow.closesOn),
+    activeNow: Boolean(activeWindow),
+    upcomingWindows: windows.map((window) => ({
+      opensOn: formatDate(window.opensOn),
+      closesOn: formatDate(window.closesOn),
+      rangeLabel: formatRange(window.opensOn, window.closesOn),
+    })),
+  }
+}
+
+export default function AdminModules({ initialModules, teams, employees }: Props) {
   const [modules, setModules] = useState<Module[]>(initialModules)
 
   const [selectorOpen, setSelectorOpen] = useState(false)
@@ -108,16 +199,33 @@ export default function AdminModules({ initialModules, teams }: Props) {
 
       {/* MODULE LIST */}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {modules.map(module => (
-          <ModuleCard
-            key={module.id}
-            module={module}
-            teamsList={teams}
-            onEdit={() => openEditModule(module)}
-            onQuestions={() => openQuestionsModal(module)}
-            onToggleActive={() => toggleActive(module.id)}
-          />
-        ))}
+        {modules.map(module => {
+          const matchedEmployees = employees.filter(employee => {
+            const employeeTeam = employee.team_id ?? employee.team
+            const employeeSeniority = employee.seniority
+            return (
+              employeeTeam === module.applies_to_team_id &&
+              (!!employeeSeniority && employeeSeniority === module.seniority)
+            )
+          })
+
+          const schedules = matchedEmployees
+            .map(emp => buildEmployeeSchedule(emp, module.frequency))
+            .filter(Boolean) as EmployeeEvaluationPlan[]
+
+          return (
+            <ModuleCard
+              key={module.id}
+              module={module}
+              teamsList={teams}
+              matchedEmployees={matchedEmployees}
+              employeeSchedules={schedules}
+              onEdit={() => openEditModule(module)}
+              onQuestions={() => openQuestionsModal(module)}
+              onToggleActive={() => toggleActive(module.id)}
+            />
+          )
+        })}
       </div>
 
       {/* FORM SELECTOR MODAL */}
