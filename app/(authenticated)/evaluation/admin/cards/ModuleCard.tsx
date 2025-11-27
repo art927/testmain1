@@ -41,6 +41,7 @@ export default function ModuleCard({
 
   const activeEvaluations = employeeSchedules.filter(plan => plan.activeNow)
   const hasEmployees = matchedEmployees.length > 0
+  const visibleSchedules = employeeSchedules.slice(0, 3)
 
   return (
     <Card
@@ -116,7 +117,7 @@ export default function ModuleCard({
             </div>
 
             <div className="space-y-2">
-              {employeeSchedules.slice(0, 3).map(schedule => (
+              {visibleSchedules.map(schedule => (
                 <div
                   key={schedule.employeeId}
                   className="rounded-lg border bg-muted/30 p-3 space-y-2"
@@ -130,19 +131,23 @@ export default function ModuleCard({
                   <p className="text-muted-foreground text-xs">
                     Start date: {schedule.startDate} • First cycle opens {schedule.firstOpensOn}
                   </p>
-                  <div className="space-y-1 text-xs">
-                    {schedule.upcomingWindows.slice(0, 3).map((window, index) => (
-                      <div
-                        key={`${schedule.employeeId}-${window.opensOn}`}
-                        className="flex items-center justify-between rounded-md border bg-background px-2 py-1"
-                      >
-                        <span className="font-medium text-foreground">{window.rangeLabel}</span>
-                        <Badge variant={index === 0 ? "default" : "outline"} className="rounded-full text-[10px]">
-                          {index === 0 ? "Next window" : `+${index} cycle`}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
+                  {schedule.upcomingWindows?.length ? (
+                    <div className="space-y-1 text-xs">
+                      {schedule.upcomingWindows.slice(0, 3).map((window, index) => (
+                        <div
+                          key={`${schedule.employeeId}-${window.opensOn}`}
+                          className="flex items-center justify-between rounded-md border bg-background px-2 py-1"
+                        >
+                          <span className="font-medium text-foreground">{window.rangeLabel}</span>
+                          <Badge variant={index === 0 ? "default" : "outline"} className="rounded-full text-[10px]">
+                            {index === 0 ? "Next window" : `+${index} cycle`}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground text-xs">No upcoming windows available.</p>
+                  )}
                 </div>
               ))}
             </div>

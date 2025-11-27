@@ -49,6 +49,7 @@ export type EmployeeEvaluationPlan = {
   startDate: string
   firstOpensOn: string
   nextOpensOn: string
+  nextOpensOnDate: Date
   windowCloses: string
   activeNow: boolean
   upcomingWindows: { opensOn: string; closesOn: string; rangeLabel: string }[]
@@ -122,6 +123,7 @@ const buildEmployeeSchedule = (
     startDate: formatDate(startDate),
     firstOpensOn: formatDate(firstOpening),
     nextOpensOn: formatDate(nextWindow.opensOn),
+    nextOpensOnDate: nextWindow.opensOn,
     windowCloses: formatDate(nextWindow.closesOn),
     activeNow: Boolean(activeWindow),
     upcomingWindows: windows.map((window) => ({
@@ -211,7 +213,12 @@ export default function AdminModules({ initialModules, teams, employees }: Props
 
           const schedules = matchedEmployees
             .map(emp => buildEmployeeSchedule(emp, module.frequency))
-            .filter(Boolean) as EmployeeEvaluationPlan[]
+            .filter(Boolean)
+            .sort(
+              (a, b) =>
+                (a as EmployeeEvaluationPlan).nextOpensOnDate.getTime() -
+                (b as EmployeeEvaluationPlan).nextOpensOnDate.getTime()
+            ) as EmployeeEvaluationPlan[]
 
           return (
             <ModuleCard
